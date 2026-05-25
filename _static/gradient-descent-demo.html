@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gradient Descent Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --ink: #212529;
+      --muted: #6c757d;
+      --line: #dee2e6;
+      --curve: #2d6a8e;
+      --steps: #d94841;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+      color: var(--ink);
+    }
+
+    .app {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.08);
+    }
+
+    .hero h2 {
+      margin: 0 0 6px 0;
+      font-size: 1.35rem;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.06);
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .field .caption {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    select,
+    input[type="range"] {
+      width: 100%;
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-color: #ffffff;
+      border: 1px solid #cfd4da;
+      border-radius: 12px;
+      padding: 0.78rem 2.8rem 0.78rem 0.95rem;
+      color: var(--ink);
+      line-height: 1.25;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      background-image:
+        linear-gradient(45deg, transparent 50%, #6c757d 50%),
+        linear-gradient(135deg, #6c757d 50%, transparent 50%),
+        linear-gradient(to right, #eef1f4, #eef1f4);
+      background-position:
+        calc(100% - 20px) calc(50% - 3px),
+        calc(100% - 14px) calc(50% - 3px),
+        calc(100% - 2.6rem) 50%;
+      background-size:
+        6px 6px,
+        6px 6px,
+        1px 58%;
+      background-repeat: no-repeat;
+    }
+
+    select:hover {
+      border-color: #b8c0c8;
+      background-color: #fcfcfd;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.16);
+      background-color: #ffffff;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      background: #f8f9fa;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .stat .label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .stat .value {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    #plot {
+      width: 100%;
+      height: 470px;
+      display: block;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .note {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #f8f9fa;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 3px;
+      border-radius: 99px;
+    }
+
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <h2>Gradient Descent, but actually interactive</h2>
+      <p>Change the controls and watch how the path moves. The blue curve is the loss landscape, and the red path shows successive parameter updates.</p>
+    </section>
+
+    <div class="layout">
+      <section class="panel controls">
+        <div class="field">
+          <label for="objective">Objective</label>
+          <select id="objective">
+            <option value="parabola">Parabola: f(x) = x^2</option>
+            <option value="shifted">Shifted bowl: f(x) = (x - 3)^2</option>
+            <option value="quartic">Flat center: f(x) = 0.08x^4 + 0.2x^2</option>
+          </select>
+          <div class="caption">Switch the loss landscape to see how curvature changes the path.</div>
+        </div>
+
+        <div class="field">
+          <label for="mode">Update mode</label>
+          <select id="mode">
+            <option value="batch">Deterministic gradient descent</option>
+            <option value="stochastic">Noisy stochastic-style updates</option>
+          </select>
+          <div class="caption">The stochastic mode adds a small, repeatable perturbation to mimic noisy gradients.</div>
+        </div>
+
+        <div class="field">
+          <label for="lr">Learning rate</label>
+          <div class="value-row"><span>Step size</span><span id="lr-value"></span></div>
+          <input id="lr" type="range" min="0.01" max="1.20" step="0.01" value="0.20">
+        </div>
+
+        <div class="field">
+          <label for="start">Starting point</label>
+          <div class="value-row"><span>Initial x</span><span id="start-value"></span></div>
+          <input id="start" type="range" min="-5.0" max="5.0" step="0.1" value="4.0">
+        </div>
+
+        <div class="field">
+          <label for="steps">Number of steps</label>
+          <div class="value-row"><span>Iterations</span><span id="steps-value"></span></div>
+          <input id="steps" type="range" min="1" max="30" step="1" value="10">
+        </div>
+      </section>
+
+      <section class="panel">
+        <svg id="plot" viewBox="0 0 760 470" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span class="legend-item"><span class="swatch" style="background: var(--curve);"></span> Loss curve</span>
+          <span class="legend-item"><span class="swatch" style="background: var(--steps);"></span> Optimization path</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="label">Final x</span><span class="value" id="final-x">-</span></div>
+          <div class="stat"><span class="label">Final loss</span><span class="value" id="final-loss">-</span></div>
+          <div class="stat"><span class="label">Behavior</span><span class="value" id="behavior">-</span></div>
+        </div>
+        <div class="note" id="note"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const objectiveSelect = document.getElementById("objective");
+    const modeSelect = document.getElementById("mode");
+    const lrInput = document.getElementById("lr");
+    const startInput = document.getElementById("start");
+    const stepsInput = document.getElementById("steps");
+    const lrValue = document.getElementById("lr-value");
+    const startValue = document.getElementById("start-value");
+    const stepsValue = document.getElementById("steps-value");
+    const finalX = document.getElementById("final-x");
+    const finalLoss = document.getElementById("final-loss");
+    const behavior = document.getElementById("behavior");
+    const note = document.getElementById("note");
+    const svg = document.getElementById("plot");
+
+    const objectives = {
+      parabola: {
+        description: "Classic convex bowl with a minimum at x = 0.",
+        loss: x => x * x,
+        grad: x => 2 * x,
+        optimum: 0
+      },
+      shifted: {
+        description: "Same idea, but the minimum is shifted to x = 3.",
+        loss: x => (x - 3) * (x - 3),
+        grad: x => 2 * (x - 3),
+        optimum: 3
+      },
+      quartic: {
+        description: "Flatter near the center, so updates naturally slow down there.",
+        loss: x => 0.08 * x * x * x * x + 0.2 * x * x,
+        grad: x => 0.32 * x * x * x + 0.4 * x,
+        optimum: 0
+      }
+    };
+
+    function runDescent(start, lr, steps, objectiveKey, mode) {
+      const objective = objectives[objectiveKey];
+      const xs = [start];
+      for (let i = 0; i < steps; i += 1) {
+        const current = xs[xs.length - 1];
+        let grad = objective.grad(current);
+        if (mode === "stochastic") {
+          grad += 0.45 * Math.cos(1.7 * (i + 1) + 0.6 * current);
+        }
+        xs.push(current - lr * grad);
+      }
+      return xs;
+    }
+
+    function sampleCurve(objectiveKey, minX, maxX, count) {
+      const objective = objectives[objectiveKey];
+      const points = [];
+      for (let i = 0; i < count; i += 1) {
+        const t = i / (count - 1);
+        const x = minX + t * (maxX - minX);
+        points.push({ x, y: objective.loss(x) });
+      }
+      return points;
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(value)) {
+        return "overflow";
+      }
+      return value.toFixed(4);
+    }
+
+    function render() {
+      const objectiveKey = objectiveSelect.value;
+      const mode = modeSelect.value;
+      const lr = parseFloat(lrInput.value);
+      const start = parseFloat(startInput.value);
+      const steps = parseInt(stepsInput.value, 10);
+      const objective = objectives[objectiveKey];
+      const xs = runDescent(start, lr, steps, objectiveKey, mode);
+      const minX = -6;
+      const maxX = 6;
+      const curve = sampleCurve(objectiveKey, minX, maxX, 300);
+      const yValues = curve.map(point => point.y).concat(xs.map(x => objective.loss(x)));
+      const minY = Math.min(0, ...yValues);
+      const maxY = Math.max(...yValues);
+      const yPad = Math.max(0.5, (maxY - minY) * 0.12);
+      const domain = { minX, maxX, minY: minY - yPad, maxY: maxY + yPad };
+
+      const width = 760;
+      const height = 470;
+      const margin = { top: 24, right: 24, bottom: 46, left: 58 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+
+      const sx = x => margin.left + ((x - domain.minX) / (domain.maxX - domain.minX)) * plotWidth;
+      const sy = y => height - margin.bottom - ((y - domain.minY) / (domain.maxY - domain.minY)) * plotHeight;
+
+      lrValue.textContent = lr.toFixed(2);
+      startValue.textContent = start.toFixed(1);
+      stepsValue.textContent = String(steps);
+
+      const curvePath = curve.map((point, index) => `${index === 0 ? "M" : "L"} ${sx(point.x).toFixed(2)} ${sy(point.y).toFixed(2)}`).join(" ");
+      const stepPath = xs.map((x, index) => `${index === 0 ? "M" : "L"} ${sx(x).toFixed(2)} ${sy(objective.loss(x)).toFixed(2)}`).join(" ");
+      const circles = xs.map((x, index) => {
+        const cx = sx(x).toFixed(2);
+        const cy = sy(objective.loss(x)).toFixed(2);
+        return `<g><circle cx="${cx}" cy="${cy}" r="4.5" fill="var(--steps)" /><text x="${cx}" y="${(parseFloat(cy) - 10).toFixed(2)}" text-anchor="middle" font-size="11" fill="#7a1f19">${index}</text></g>`;
+      }).join("");
+
+        const gridLines = [];
+      for (let i = 0; i <= 6; i += 1) {
+        const y = margin.top + (i / 6) * plotHeight;
+        gridLines.push(`<line x1="${margin.left}" y1="${y.toFixed(2)}" x2="${(width - margin.right).toFixed(2)}" y2="${y.toFixed(2)}" stroke="#edf0f2" stroke-width="1" />`);
+      }
+      for (let i = 0; i <= 6; i += 1) {
+        const x = margin.left + (i / 6) * plotWidth;
+        gridLines.push(`<line x1="${x.toFixed(2)}" y1="${margin.top}" x2="${x.toFixed(2)}" y2="${(height - margin.bottom).toFixed(2)}" stroke="#edf0f2" stroke-width="1" />`);
+      }
+
+      const axisY = (domain.minY <= 0 && domain.maxY >= 0) ? sy(0) : (height - margin.bottom);
+      const axisX = (domain.minX <= 0 && domain.maxX >= 0) ? sx(0) : margin.left;
+
+      svg.innerHTML = `
+        <rect x="0" y="0" width="760" height="470" rx="12" ry="12" fill="transparent"></rect>
+        ${gridLines.join("")}
+        <line x1="${margin.left}" y1="${axisY.toFixed(2)}" x2="${(width - margin.right).toFixed(2)}" y2="${axisY.toFixed(2)}" stroke="#6b7280" stroke-width="1.2" />
+        <line x1="${axisX.toFixed(2)}" y1="${margin.top}" x2="${axisX.toFixed(2)}" y2="${(height - margin.bottom).toFixed(2)}" stroke="#6b7280" stroke-width="1.2" />
+        <path d="${curvePath}" fill="none" stroke="var(--curve)" stroke-width="3" stroke-linecap="round" />
+        <path d="${stepPath}" fill="none" stroke="var(--steps)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+        ${circles}
+        <text x="${width - margin.right}" y="${height - 10}" text-anchor="end" font-size="12" fill="#52606d">parameter x</text>
+        <text x="18" y="${margin.top - 6}" font-size="12" fill="#52606d">loss f(x)</text>
+      `;
+
+      const last = xs[xs.length - 1];
+      const lastLoss = objective.loss(last);
+      finalX.textContent = formatNumber(last);
+      finalLoss.textContent = formatNumber(lastLoss);
+
+      const errorToOptimum = Math.abs(last - objective.optimum);
+      const diverged = xs.some(x => Math.abs(x) > 50);
+      let behaviorLabel = "converging";
+      if (diverged || !Number.isFinite(lastLoss)) {
+        behaviorLabel = "diverging";
+      } else if (mode === "stochastic") {
+        behaviorLabel = "noisy";
+      } else if (errorToOptimum < 0.05) {
+        behaviorLabel = "settling";
+      } else if (Math.abs(xs[1] - xs[0]) < 0.1) {
+        behaviorLabel = "very slow";
+      }
+      behavior.textContent = behaviorLabel;
+
+      let message = `<strong>${objective.description}</strong> `;
+      if (diverged || !Number.isFinite(lastLoss)) {
+        message += "The learning rate is too aggressive for this landscape, so the updates are overshooting and blowing up.";
+      } else if (mode === "stochastic") {
+        message += "The path wiggles because each update uses a noisy gradient estimate instead of a perfectly smooth one.";
+      } else if (Math.abs(xs[1] - xs[0]) < 0.1) {
+        message += "These steps are very small, so the optimizer is moving in the right direction but learning slowly.";
+      } else if (errorToOptimum < 0.05) {
+        message += "The updates are shrinking near the minimum because the gradient magnitude gets smaller there.";
+      } else {
+        message += "You are seeing ordinary downhill progress: each step follows the negative gradient from the current point.";
+      }
+      note.innerHTML = message;
+    }
+
+    [objectiveSelect, modeSelect, lrInput, startInput, stepsInput].forEach(element => {
+      element.addEventListener("input", render);
+      element.addEventListener("change", render);
+    });
+
+    render();
+  </script>
+</body>
+</html>

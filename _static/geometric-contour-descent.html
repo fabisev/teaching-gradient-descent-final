@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive Contour Descent</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0c2340;
+      --muted: #516675;
+      --line: #c8dfea;
+      --blue: #00a6d6;
+      --blue-dark: #0c2340;
+      --blue-soft: #e5f7fc;
+      --orange: #e17000;
+      --paper: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .top {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+    }
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h2 {
+      font-size: clamp(1.1rem, 2.6vw, 1.45rem);
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 190px;
+      gap: 12px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #ffffff;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .contour {
+      fill: none;
+      stroke: #b8dce8;
+      stroke-width: 2;
+    }
+
+    .contour-strong {
+      stroke: var(--blue-dark);
+      opacity: 0.35;
+    }
+
+    .path {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 3.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .past {
+      fill: var(--orange);
+      opacity: 0.85;
+    }
+
+    .current {
+      fill: var(--blue);
+      stroke: #ffffff;
+      stroke-width: 4;
+      filter: drop-shadow(0 8px 12px rgba(0, 166, 214, 0.25));
+    }
+
+    .minimum {
+      fill: var(--blue-dark);
+    }
+
+    .uphill {
+      stroke: #8aa2af;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-dasharray: 5 5;
+    }
+
+    .downhill {
+      stroke: var(--blue);
+      stroke-width: 3.2;
+      stroke-linecap: round;
+    }
+
+    .label {
+      fill: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.65rem 0.9rem;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .primary {
+      background: var(--blue-dark);
+      color: #ffffff;
+    }
+
+    .secondary {
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .stat {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border-radius: 14px;
+      background: #f4fbfe;
+      border: 1px solid #d6e8f0;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .stat strong {
+      font-size: 1rem;
+    }
+
+    .note {
+      padding: 10px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      line-height: 1.42;
+    }
+
+    @media (max-width: 620px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top">
+      <h2>Two-parameter contour map</h2>
+      <p>Click through the path. The gray dashed arrow points uphill; the blue arrow points downhill along the negative gradient.</p>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <svg id="plot" viewBox="0 0 640 360" role="img" aria-label="A contour map showing gradient descent moving toward a minimum"></svg>
+      </div>
+
+      <aside class="controls">
+        <div class="button-row">
+          <button class="button primary" id="next" type="button">Next step</button>
+          <button class="button secondary" id="reset" type="button">Reset</button>
+        </div>
+        <div class="stat"><span>&theta;<sub>1</sub></span><strong id="theta-one">-</strong></div>
+        <div class="stat"><span>&theta;<sub>2</sub></span><strong id="theta-two">-</strong></div>
+        <div class="stat"><span>Loss</span><strong id="loss-value">-</strong></div>
+        <p class="note">Contour lines connect equal loss. The path bends because the downhill direction changes from one point to the next.</p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const svg = document.getElementById("plot");
+    const next = document.getElementById("next");
+    const reset = document.getElementById("reset");
+    const thetaOne = document.getElementById("theta-one");
+    const thetaTwo = document.getElementById("theta-two");
+    const lossValue = document.getElementById("loss-value");
+
+    const optimum = { x: 1.2, y: -0.6 };
+    const alpha = 0.34;
+    const maxSteps = 8;
+    let visibleSteps = 0;
+
+    function loss(point) {
+      return 0.5 * (point.x - optimum.x) ** 2 + 1.15 * (point.y - optimum.y) ** 2;
+    }
+
+    function gradient(point) {
+      return {
+        x: point.x - optimum.x,
+        y: 2.3 * (point.y - optimum.y)
+      };
+    }
+
+    function format(value) {
+      return Number(value).toFixed(2);
+    }
+
+    function pathValues() {
+      const values = [{ x: -2.55, y: 2.25 }];
+      for (let i = 0; i < maxSteps; i += 1) {
+        const current = values[values.length - 1];
+        const grad = gradient(current);
+        values.push({
+          x: current.x - alpha * grad.x,
+          y: current.y - alpha * grad.y
+        });
+      }
+      return values;
+    }
+
+    function render() {
+      const width = 640;
+      const height = 360;
+      const margin = { top: 26, right: 26, bottom: 44, left: 50 };
+      const xMin = -3.2;
+      const xMax = 3.6;
+      const yMin = -2.4;
+      const yMax = 2.6;
+      const sx = x => margin.left + ((x - xMin) / (xMax - xMin)) * (width - margin.left - margin.right);
+      const sy = y => height - margin.bottom - ((y - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
+      const allPath = pathValues();
+      const shown = allPath.slice(0, visibleSteps + 1);
+      const current = shown[shown.length - 1];
+      const grad = gradient(current);
+      const scale = 0.32;
+      const uphillEnd = { x: current.x + grad.x * scale, y: current.y + grad.y * scale };
+      const downhillEnd = { x: current.x - grad.x * scale, y: current.y - grad.y * scale };
+
+      const contourLevels = [0.3, 0.8, 1.4, 2.2, 3.2, 4.6, 6.2, 8.2];
+      const contours = contourLevels.map((level, i) => {
+        const rx = Math.sqrt(2 * level);
+        const ry = Math.sqrt(level / 1.15);
+        const cx = sx(optimum.x);
+        const cy = sy(optimum.y);
+        const pixelRx = Math.abs(sx(optimum.x + rx) - sx(optimum.x));
+        const pixelRy = Math.abs(sy(optimum.y + ry) - sy(optimum.y));
+        const klass = i % 2 === 0 ? "contour contour-strong" : "contour";
+        return `<ellipse class="${klass}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${pixelRx.toFixed(1)}" ry="${pixelRy.toFixed(1)}"></ellipse>`;
+      }).join("");
+
+      const descentPath = shown.map((point, i) => `${i === 0 ? "M" : "L"} ${sx(point.x).toFixed(1)} ${sy(point.y).toFixed(1)}`).join(" ");
+      const dots = shown.map((point, i) => {
+        const klass = i === shown.length - 1 ? "current" : "past";
+        return `<circle class="${klass}" cx="${sx(point.x).toFixed(1)}" cy="${sy(point.y).toFixed(1)}" r="${i === shown.length - 1 ? 8 : 5}"></circle>`;
+      }).join("");
+
+      svg.innerHTML = `
+        <defs>
+          <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--blue)"></path>
+          </marker>
+          <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#8aa2af"></path>
+          </marker>
+        </defs>
+        ${contours}
+        <path class="path" d="${descentPath}"></path>
+        <line class="uphill" x1="${sx(current.x).toFixed(1)}" y1="${sy(current.y).toFixed(1)}" x2="${sx(uphillEnd.x).toFixed(1)}" y2="${sy(uphillEnd.y).toFixed(1)}" marker-end="url(#arrow-gray)"></line>
+        <line class="downhill" x1="${sx(current.x).toFixed(1)}" y1="${sy(current.y).toFixed(1)}" x2="${sx(downhillEnd.x).toFixed(1)}" y2="${sy(downhillEnd.y).toFixed(1)}" marker-end="url(#arrow-blue)"></line>
+        ${dots}
+        <circle class="minimum" cx="${sx(optimum.x).toFixed(1)}" cy="${sy(optimum.y).toFixed(1)}" r="5"></circle>
+        <text class="label" x="${sx(optimum.x).toFixed(1)}" y="${(sy(optimum.y) + 18).toFixed(1)}" text-anchor="middle">minimum</text>
+        <text class="label" x="${width - margin.right}" y="${height - 12}" text-anchor="end">&theta;1</text>
+        <text class="label" x="18" y="${margin.top + 12}" transform="rotate(-90 18 ${margin.top + 12})">&theta;2</text>
+      `;
+
+      thetaOne.textContent = format(current.x);
+      thetaTwo.textContent = format(current.y);
+      lossValue.textContent = format(loss(current));
+      next.disabled = visibleSteps >= maxSteps;
+    }
+
+    next.addEventListener("click", () => {
+      visibleSteps = Math.min(maxSteps, visibleSteps + 1);
+      render();
+    });
+
+    reset.addEventListener("click", () => {
+      visibleSteps = 0;
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

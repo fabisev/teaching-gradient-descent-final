@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive One-Dimensional Descent</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0c2340;
+      --muted: #516675;
+      --line: #c8dfea;
+      --blue: #00a6d6;
+      --blue-dark: #0c2340;
+      --blue-soft: #e5f7fc;
+      --orange: #e17000;
+      --paper: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+    }
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h2 {
+      font-size: clamp(1.1rem, 2.6vw, 1.45rem);
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 190px;
+      gap: 12px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #ffffff;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .axis {
+      stroke: #b8d4df;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .grid {
+      stroke: #edf6fa;
+      stroke-width: 1;
+    }
+
+    .curve {
+      fill: none;
+      stroke: var(--blue-dark);
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .path {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .current {
+      fill: var(--blue);
+      stroke: #ffffff;
+      stroke-width: 4;
+      filter: drop-shadow(0 8px 12px rgba(0, 166, 214, 0.25));
+    }
+
+    .past {
+      fill: var(--orange);
+      opacity: 0.8;
+    }
+
+    .arrow {
+      stroke: var(--blue);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    .label {
+      fill: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.65rem 0.9rem;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .primary {
+      background: var(--blue-dark);
+      color: #ffffff;
+    }
+
+    .secondary {
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .stat {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border-radius: 14px;
+      background: #f4fbfe;
+      border: 1px solid #d6e8f0;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .stat strong {
+      font-size: 1rem;
+    }
+
+    .note {
+      padding: 10px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      line-height: 1.42;
+    }
+
+    @media (max-width: 620px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top">
+      <div>
+        <h2>One-dimensional loss curve</h2>
+        <p>Click through the updates. Each step uses the local slope and moves in the negative-gradient direction.</p>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <svg id="plot" viewBox="0 0 640 330" role="img" aria-label="A one-dimensional gradient descent path on a loss curve"></svg>
+      </div>
+
+      <aside class="controls">
+        <div class="button-row">
+          <button class="button primary" id="next" type="button">Next step</button>
+          <button class="button secondary" id="reset" type="button">Reset</button>
+        </div>
+        <div class="stat"><span>Current &theta;</span><strong id="theta-value">0</strong></div>
+        <div class="stat"><span>Gradient</span><strong id="gradient-value">-</strong></div>
+        <div class="stat"><span>Direction</span><strong id="direction-value">-</strong></div>
+        <p class="note" id="note"></p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const svg = document.getElementById("plot");
+    const next = document.getElementById("next");
+    const reset = document.getElementById("reset");
+    const thetaValue = document.getElementById("theta-value");
+    const gradientValue = document.getElementById("gradient-value");
+    const directionValue = document.getElementById("direction-value");
+    const note = document.getElementById("note");
+
+    const alpha = 0.18;
+    const start = -0.2;
+    const target = 3;
+    const maxSteps = 7;
+    let visibleSteps = 0;
+
+    function loss(theta) {
+      return (theta - target) ** 2 + 0.25;
+    }
+
+    function gradient(theta) {
+      return 2 * (theta - target);
+    }
+
+    function format(value) {
+      return Number(value).toFixed(3).replace(/\.?0+$/, "");
+    }
+
+    function pathValues() {
+      const values = [start];
+      for (let i = 0; i < maxSteps; i += 1) {
+        const current = values[values.length - 1];
+        values.push(current - alpha * gradient(current));
+      }
+      return values;
+    }
+
+    function render() {
+      const width = 640;
+      const height = 330;
+      const margin = { top: 24, right: 26, bottom: 48, left: 54 };
+      const xMin = -0.6;
+      const xMax = 3.8;
+      const yMin = 0;
+      const yMax = loss(xMin);
+      const sx = theta => margin.left + ((theta - xMin) / (xMax - xMin)) * (width - margin.left - margin.right);
+      const sy = value => height - margin.bottom - ((value - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
+      const curve = Array.from({ length: 100 }, (_, i) => {
+        const theta = xMin + (i / 99) * (xMax - xMin);
+        return { theta, y: loss(theta) };
+      });
+      const allPath = pathValues();
+      const shown = allPath.slice(0, visibleSteps + 1);
+      const currentTheta = shown[shown.length - 1];
+      const currentGradient = gradient(currentTheta);
+      const currentDirection = currentGradient > 0 ? "move left" : currentGradient < 0 ? "move right" : "stay";
+      const curvePath = curve.map((point, i) => `${i === 0 ? "M" : "L"} ${sx(point.theta).toFixed(1)} ${sy(point.y).toFixed(1)}`).join(" ");
+      const descentPath = shown.map((theta, i) => `${i === 0 ? "M" : "L"} ${sx(theta).toFixed(1)} ${sy(loss(theta)).toFixed(1)}`).join(" ");
+      const dots = shown.map((theta, i) => {
+        const klass = i === shown.length - 1 ? "current" : "past";
+        return `<circle class="${klass}" cx="${sx(theta).toFixed(1)}" cy="${sy(loss(theta)).toFixed(1)}" r="${i === shown.length - 1 ? 8 : 5}"></circle>`;
+      }).join("");
+      const nextTheta = allPath[Math.min(visibleSteps + 1, allPath.length - 1)];
+      const arrow = visibleSteps < maxSteps ? `<line class="arrow" x1="${sx(currentTheta).toFixed(1)}" y1="${(sy(loss(currentTheta)) + 18).toFixed(1)}" x2="${sx(nextTheta).toFixed(1)}" y2="${(sy(loss(nextTheta)) + 18).toFixed(1)}" marker-end="url(#arrowhead)"></line>` : "";
+
+      svg.innerHTML = `
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--blue)"></path>
+          </marker>
+        </defs>
+        ${[0, 1, 2, 3, 4].map(i => `<line class="grid" x1="${margin.left}" x2="${width - margin.right}" y1="${(margin.top + i * 58).toFixed(1)}" y2="${(margin.top + i * 58).toFixed(1)}"></line>`).join("")}
+        <line class="axis" x1="${margin.left}" x2="${width - margin.right}" y1="${height - margin.bottom}" y2="${height - margin.bottom}"></line>
+        <line class="axis" x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${height - margin.bottom}"></line>
+        <path class="curve" d="${curvePath}"></path>
+        <path class="path" d="${descentPath}"></path>
+        ${arrow}
+        ${dots}
+        <text class="label" x="${width - margin.right}" y="${height - 14}" text-anchor="end">parameter &theta;</text>
+        <text class="label" x="16" y="${margin.top + 8}" transform="rotate(-90 16 ${margin.top + 8})">loss J(&theta;)</text>
+      `;
+
+      thetaValue.textContent = format(currentTheta);
+      gradientValue.textContent = format(currentGradient);
+      directionValue.textContent = currentDirection;
+      note.textContent = currentGradient < 0
+        ? "The slope is negative, so moving right lowers the loss."
+        : "The slope is positive, so moving left lowers the loss.";
+      next.disabled = visibleSteps >= maxSteps;
+    }
+
+    next.addEventListener("click", () => {
+      visibleSteps = Math.min(maxSteps, visibleSteps + 1);
+      render();
+    });
+
+    reset.addEventListener("click", () => {
+      visibleSteps = 0;
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

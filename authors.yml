@@ -1,0 +1,14 @@
+version: 1
+project:
+  
+  authors:
+    - id: rp-team
+      name: RP 25/26 Teaching ML Fundamentals team
+      affiliations:
+        - tud
+
+  contributors: []
+
+  affiliations:
+    - id: tud
+      institution: Delft University of Technology

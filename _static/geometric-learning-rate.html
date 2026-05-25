@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive Learning Rate Comparison</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0c2340;
+      --muted: #516675;
+      --line: #c8dfea;
+      --blue: #00a6d6;
+      --blue-dark: #0c2340;
+      --blue-soft: #e5f7fc;
+      --orange: #e17000;
+      --paper: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+    }
+
+    .app {
+      display: grid;
+      padding: 10px;
+    }
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h2 {
+      font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .panel {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #ffffff;
+    }
+
+    .top {
+      display: grid;
+      gap: 8px;
+    }
+
+    .formula-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px 14px;
+      align-items: baseline;
+    }
+
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+    }
+
+    .status-line strong {
+      color: var(--blue-dark);
+    }
+
+    .formula-lines {
+      display: grid;
+      gap: 4px;
+      color: var(--blue-dark);
+      font-family: "Cambria Math", "Times New Roman", serif;
+      font-size: clamp(1.02rem, 2.2vw, 1.22rem);
+      line-height: 1.3;
+    }
+
+    .formula-live {
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    .slider-area {
+      display: grid;
+      gap: 5px;
+      padding-top: 2px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .axis {
+      stroke: #b8d4df;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .grid {
+      stroke: #edf6fa;
+      stroke-width: 1;
+    }
+
+    .curve {
+      fill: none;
+      stroke: var(--blue-dark);
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .path {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .step-dot {
+      fill: var(--orange);
+      opacity: 0.9;
+    }
+
+    .current {
+      fill: var(--blue);
+      stroke: #ffffff;
+      stroke-width: 4;
+      filter: drop-shadow(0 8px 12px rgba(0, 166, 214, 0.25));
+    }
+
+    .label {
+      fill: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    label {
+      font-weight: 800;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.38;
+    }
+
+    @media (max-width: 560px) {
+      .formula-header {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <div class="top">
+        <div class="formula-header">
+          <div>
+            <h2>Learning rate changes the path</h2>
+            <p>Use only the learning-rate slider; the start point and loss curve stay fixed.</p>
+          </div>
+          <div class="status-line">
+            <span>Behavior: <strong id="behavior">steady</strong></span>
+            <span>Final loss = <strong id="final-loss">-</strong></span>
+          </div>
+        </div>
+
+        <div class="formula-lines" aria-label="Gradient descent update rule">
+          <div>&theta;<sub>new</sub> = &theta;<sub>current</sub> - &alpha; &times; gradient</div>
+          <div class="formula-live">&theta;<sub>new</sub> = &theta;<sub>current</sub> - <span id="alpha-value">0.22</span> &times; gradient</div>
+        </div>
+
+        <div class="slider-area">
+          <div class="slider-label">
+            <label for="lr">Learning rate &alpha;</label>
+            <span>step size = <strong id="step-size-value">0.22</strong></span>
+          </div>
+          <input id="lr" type="range" min="0.02" max="1.18" step="0.02" value="0.22">
+          <div class="scale"><span>small</span><span>reasonable</span><span>large</span></div>
+        </div>
+
+        <p class="note" id="note"></p>
+      </div>
+
+      <svg id="plot" viewBox="0 0 640 230" role="img" aria-label="A gradient descent path controlled by learning rate"></svg>
+    </section>
+  </main>
+
+  <script>
+    const svg = document.getElementById("plot");
+    const lr = document.getElementById("lr");
+    const alphaValue = document.getElementById("alpha-value");
+    const stepSizeValue = document.getElementById("step-size-value");
+    const behavior = document.getElementById("behavior");
+    const finalLoss = document.getElementById("final-loss");
+    const note = document.getElementById("note");
+
+    const target = 3;
+    const start = 0;
+    const steps = 8;
+
+    function loss(theta) {
+      return (theta - target) ** 2 + 0.25;
+    }
+
+    function gradient(theta) {
+      return 2 * (theta - target);
+    }
+
+    function format(value) {
+      if (!Number.isFinite(value)) return "overflow";
+      return Number(value).toFixed(3).replace(/\.?0+$/, "");
+    }
+
+    function pathValues(alpha) {
+      const values = [start];
+      for (let i = 0; i < steps; i += 1) {
+        const current = values[values.length - 1];
+        values.push(current - alpha * gradient(current));
+      }
+      return values;
+    }
+
+    function classify(alpha) {
+      if (alpha < 0.1) return ["very slow", "The direction is correct, but the steps are tiny. The path needs many iterations."];
+      if (alpha <= 0.45) return ["steady", "The steps are large enough to make progress, but still controlled."];
+      if (alpha < 1) return ["overshooting", "The path jumps across the minimum and oscillates, although it may still settle."];
+      return ["unstable", "The step size is too large for this curve, so the updates grow instead of settling."];
+    }
+
+    function render() {
+      const alpha = parseFloat(lr.value);
+      const values = pathValues(alpha);
+      const width = 640;
+      const height = 230;
+      const margin = { top: 12, right: 24, bottom: 36, left: 50 };
+      const xMin = -1.1;
+      const xMax = 7.1;
+      const yMin = 0;
+      const yMax = Math.max(10, ...values.map(loss));
+      const sx = theta => margin.left + ((theta - xMin) / (xMax - xMin)) * (width - margin.left - margin.right);
+      const sy = value => height - margin.bottom - ((value - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
+      const curve = Array.from({ length: 120 }, (_, i) => {
+        const theta = xMin + (i / 119) * (xMax - xMin);
+        return { theta, y: loss(theta) };
+      });
+      const curvePath = curve.map((point, i) => `${i === 0 ? "M" : "L"} ${sx(point.theta).toFixed(1)} ${sy(point.y).toFixed(1)}`).join(" ");
+      const descentPath = values.map((theta, i) => `${i === 0 ? "M" : "L"} ${sx(theta).toFixed(1)} ${sy(loss(theta)).toFixed(1)}`).join(" ");
+      const dots = values.map((theta, i) => {
+        const last = i === values.length - 1;
+        return `<circle class="${last ? "current" : "step-dot"}" cx="${sx(theta).toFixed(1)}" cy="${sy(loss(theta)).toFixed(1)}" r="${last ? 8 : 4.8}"></circle>`;
+      }).join("");
+
+      svg.innerHTML = `
+        ${[0, 1, 2, 3, 4].map(i => `<line class="grid" x1="${margin.left}" x2="${width - margin.right}" y1="${(margin.top + i * 40).toFixed(1)}" y2="${(margin.top + i * 40).toFixed(1)}"></line>`).join("")}
+        <line class="axis" x1="${margin.left}" x2="${width - margin.right}" y1="${height - margin.bottom}" y2="${height - margin.bottom}"></line>
+        <line class="axis" x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${height - margin.bottom}"></line>
+        <path class="curve" d="${curvePath}"></path>
+        <path class="path" d="${descentPath}"></path>
+        ${dots}
+        <text class="label" x="${sx(target).toFixed(1)}" y="${height - 18}" text-anchor="middle">minimum</text>
+        <text class="label" x="${width - margin.right}" y="${height - 14}" text-anchor="end">parameter &theta;</text>
+        <text class="label" x="16" y="${margin.top + 8}" transform="rotate(-90 16 ${margin.top + 8})">loss J(&theta;)</text>
+      `;
+
+      const [label, message] = classify(alpha);
+      alphaValue.textContent = alpha.toFixed(2);
+      stepSizeValue.textContent = alpha.toFixed(2);
+      behavior.textContent = label;
+      finalLoss.textContent = format(loss(values[values.length - 1]));
+      note.textContent = message;
+    }
+
+    lr.addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>

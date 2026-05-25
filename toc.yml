@@ -1,0 +1,16 @@
+version: 1
+project:
+  toc:
+    - file: content/00-overview/00-overview.md
+    - file: content/10-classic-textbook/10-classic-textbook.md
+      children:
+        - file: content/01-foundations/01-foundations.md
+        - file: content/02-algebraic-view/02-algebraic-view.md
+    - file: content/20-multiple-modalities/20-multiple-modalities.md
+      children:
+        - file: content/03-geometric-view/03-geometric-view.md
+        - file: content/07-worked-example/07-worked-example.md
+        - file: content/04-physical-analogy/04-physical-analogy.md
+        - file: content/05-interactive-exploration/05-interactive-exploration.md
+    - file: content/06-transfer-and-exercises/06-transfer-and-exercises.md
+    - file: references.md

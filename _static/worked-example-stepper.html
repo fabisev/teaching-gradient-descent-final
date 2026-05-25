@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Worked Gradient Descent Stepper</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef7fb;
+      --paper: #ffffff;
+      --ink: #0c2340;
+      --muted: #4d6474;
+      --line: #c8dfea;
+      --tud-blue: #00a6d6;
+      --tud-blue-mid: #0076c2;
+      --tud-blue-dark: #0c2340;
+      --tud-blue-soft: #e5f7fc;
+      --tud-blue-pale: #f4fbfe;
+      --shadow: 0 18px 50px rgba(12, 35, 64, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      padding: 12px;
+    }
+
+    .card {
+      max-width: 100%;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero {
+      display: grid;
+      gap: 8px;
+      padding: 22px 24px 16px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      color: var(--tud-blue-mid);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 3vw, 2.25rem);
+      line-height: 1.08;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 75ch;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .hero-rule {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.55rem;
+      align-items: baseline;
+      padding-top: 2px;
+    }
+
+    .hero-rule strong {
+      color: var(--tud-blue-dark);
+    }
+
+    .hero-rule .math {
+      color: var(--tud-blue-dark);
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: #ffffff;
+      min-width: 0;
+      padding: 14px;
+    }
+
+    .step-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .step-count {
+      flex: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--tud-blue-soft);
+      color: var(--tud-blue-dark);
+      font-weight: 800;
+      font-size: 0.92rem;
+    }
+
+    h2 {
+      margin: 0 0 5px;
+      font-size: clamp(1.2rem, 2.5vw, 1.65rem);
+    }
+
+    .prompt {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .formula-board {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .formula-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-height: 52px;
+      padding: 11px 12px;
+      border: 1px solid #d6e8f0;
+      border-radius: 16px;
+      background: var(--tud-blue-pale);
+      color: var(--tud-blue-dark);
+      opacity: 0.72;
+      transform: translateY(0);
+    }
+
+    .formula-line.current {
+      border-color: rgba(0, 166, 214, 0.62);
+      background: var(--tud-blue-soft);
+      opacity: 1;
+      box-shadow: 0 10px 24px rgba(0, 166, 214, 0.16);
+      animation: pop 240ms ease-out;
+    }
+
+    @keyframes pop {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .formula-label {
+      flex: 0 0 82px;
+      min-width: 0;
+      color: var(--tud-blue-mid);
+      font-weight: 800;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .math {
+      font-family: "Cambria Math", "Times New Roman", serif;
+      font-size: clamp(1.08rem, 2.1vw, 1.35rem);
+      line-height: 1.35;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .math small {
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.78rem 1.05rem;
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+
+    .primary {
+      background: var(--tud-blue-dark);
+      color: white;
+      box-shadow: 0 10px 22px rgba(12, 35, 64, 0.22);
+    }
+
+    .secondary {
+      background: var(--tud-blue-soft);
+      color: var(--tud-blue-dark);
+    }
+
+    .aside {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      min-width: 0;
+      width: 220px;
+    }
+
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #ffffff;
+      padding: 12px;
+    }
+
+    .mini-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .tracker-card h3 {
+      margin-bottom: 4px;
+    }
+
+    .tracker-card {
+      display: grid;
+      gap: 16px;
+    }
+
+    .loss-plot {
+      margin-top: 10px;
+    }
+
+    .loss-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .plot-axis {
+      stroke: #b8d4df;
+      stroke-linecap: round;
+      stroke-width: 2;
+    }
+
+    .loss-fill {
+      fill: url(#loss-fill-gradient);
+    }
+
+    .loss-curve-path {
+      fill: none;
+      stroke: var(--tud-blue-dark);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 4;
+    }
+
+    .minimum-drop,
+    .point-drop {
+      stroke: var(--line);
+      stroke-dasharray: 4 5;
+      stroke-linecap: round;
+      stroke-width: 2;
+    }
+
+    .minimum-dot {
+      fill: var(--tud-blue-dark);
+    }
+
+    .point {
+      fill: var(--tud-blue);
+      stroke: #ffffff;
+      stroke-width: 4;
+      filter: drop-shadow(0 8px 12px rgba(0, 166, 214, 0.32));
+      transition: cx 240ms ease, cy 240ms ease;
+    }
+
+    .plot-label {
+      fill: var(--tud-blue-dark);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .plot-axis-label {
+      fill: var(--muted);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .point-label {
+      fill: var(--tud-blue-mid);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 800;
+      transition: x 240ms ease, y 240ms ease;
+    }
+
+    .plot-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      margin-top: 6px;
+    }
+
+    .values {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .value-box {
+      border-radius: 16px;
+      background: var(--tud-blue-pale);
+      padding: 9px;
+    }
+
+    .value-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+    }
+
+    .value-box strong {
+      font-size: 1.05rem;
+    }
+
+    .progress {
+      display: grid;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 5px;
+    }
+
+    .dot {
+      height: 8px;
+      border-radius: 99px;
+      background: #d6e8f0;
+    }
+
+    .dot.done {
+      background: var(--tud-blue-dark);
+    }
+
+    .dot.current {
+      background: var(--tud-blue);
+    }
+
+    @media (max-width: 560px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+
+      .aside {
+        width: 100%;
+      }
+
+      .formula-line {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .formula-label {
+        min-width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card" aria-label="Interactive worked example">
+      <header class="hero">
+        <div class="eyebrow">Worked example</div>
+        <h1>Reveal one gradient descent update at a time</h1>
+        <p>Click Next to uncover each substitution and calculation. The goal is to see how the same rule moves the parameter from 0 toward the minimum at 3.</p>
+        <p class="hero-rule"><strong>Remember the rule:</strong> <span class="math">&theta;<sub>new</sub> = &theta;<sub>current</sub> - &alpha; &times; gradient</span></p>
+      </header>
+
+      <div class="workspace">
+        <section class="panel" aria-live="polite">
+          <div class="step-top">
+            <div>
+              <h2 id="step-title"></h2>
+              <p class="prompt" id="step-prompt"></p>
+            </div>
+            <div class="step-count" id="step-count"></div>
+          </div>
+
+          <div class="progress" id="progress" aria-label="Progress through the worked example"></div>
+          <div class="formula-board" id="formula-board"></div>
+
+          <div class="controls">
+            <button class="button secondary" id="back" type="button">Back</button>
+            <button class="button primary" id="next" type="button">Next</button>
+            <button class="button secondary" id="restart" type="button">Restart</button>
+          </div>
+        </section>
+
+        <aside class="aside">
+          <section class="mini-card tracker-card">
+            <div>
+              <h3>Live values</h3>
+              <div class="values">
+                <div class="value-box"><span>&theta;</span><strong id="theta-value">0</strong></div>
+                <div class="value-box"><span>gradient</span><strong id="gradient-value">-</strong></div>
+                <div class="value-box"><span>learning rate</span><strong>0.1</strong></div>
+                <div class="value-box"><span>next step</span><strong id="next-value">-</strong></div>
+              </div>
+            </div>
+
+            <div>
+              <h3>Current parameter</h3>
+              <div class="loss-plot">
+                <svg class="loss-svg" viewBox="0 0 240 160" role="img" aria-labelledby="loss-plot-title loss-plot-desc">
+                  <title id="loss-plot-title">Current parameter on the loss curve</title>
+                  <desc id="loss-plot-desc">A bowl-shaped curve shows the current parameter moving toward the minimum of the loss.</desc>
+                  <defs>
+                    <linearGradient id="loss-fill-gradient" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#00a6d6" stop-opacity="0.2"></stop>
+                      <stop offset="100%" stop-color="#00a6d6" stop-opacity="0.02"></stop>
+                    </linearGradient>
+                  </defs>
+                  <line class="plot-axis" x1="18" x2="224" y1="130" y2="130"></line>
+                  <line class="plot-axis" x1="18" x2="18" y1="22" y2="130"></line>
+                  <text class="plot-axis-label" x="224" y="148" text-anchor="end">&theta;</text>
+                  <text class="plot-axis-label" transform="translate(8 78) rotate(-90)" text-anchor="middle">loss J(&theta;)</text>
+                  <path class="loss-fill" id="loss-fill"></path>
+                  <path class="loss-curve-path" id="loss-curve-path"></path>
+                  <line class="minimum-drop" id="minimum-drop"></line>
+                  <circle class="minimum-dot" id="minimum" r="4"></circle>
+                  <text class="plot-label" id="minimum-label" text-anchor="middle">minimum</text>
+                  <line class="point-drop" id="point-drop"></line>
+                  <circle class="point" id="point" r="8"></circle>
+                  <text class="point-label" id="point-label" text-anchor="middle"></text>
+                </svg>
+                <p class="plot-note">The blue point sits on the loss curve at the latest value of &theta;, and the dark point marks the minimum. The x-axis is &theta;; the y-axis is loss J(&theta;). The gradient is the slope at the blue point.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const steps = [
+      {
+        title: "Set up the example",
+        prompt: "We choose a simple bowl-shaped loss. The best value is at the bottom of the bowl, where theta is 3.",
+        theta: 0,
+        gradient: null,
+        nextTheta: null,
+        lines: [
+          ["Loss", "J(&theta;) = (&theta; - 3)<sup>2</sup>"],
+          ["Slope", "dJ/d&theta; = 2(&theta; - 3)"],
+          ["Start", "&theta;<sub>0</sub> = 0, &nbsp; &alpha; = 0.1"]
+        ]
+      },
+      {
+        title: "Start with the current parameter",
+        prompt: "The first update begins at theta zero. We now put that value into the slope formula.",
+        theta: 0,
+        gradient: null,
+        nextTheta: null,
+        lines: [
+          ["Current", "&theta;<sub>0</sub> = 0"],
+          ["Substitute", "dJ/d&theta;(0) = 2(0 - 3)"]
+        ]
+      },
+      {
+        title: "Compute the gradient",
+        prompt: "The gradient is negative. That means the loss goes down if theta moves to the right.",
+        theta: 0,
+        gradient: -6,
+        nextTheta: null,
+        lines: [
+          ["Simplify", "dJ/d&theta;(0) = 2(-3)"],
+          ["Gradient", "dJ/d&theta;(0) = -6"]
+        ]
+      },
+      {
+        title: "Put the gradient into the update rule",
+        prompt: "Gradient descent subtracts the gradient. Subtracting a negative number makes the parameter increase.",
+        theta: 0,
+        gradient: -6,
+        nextTheta: 0.6,
+        lines: [
+          ["Rule", "&theta;<sub>1</sub> = &theta;<sub>0</sub> - &alpha; &nabla;J(&theta;<sub>0</sub>)"],
+          ["Substitute", "&theta;<sub>1</sub> = 0 - 0.1(-6)"],
+          ["Result", "&theta;<sub>1</sub> = 0.6"]
+        ]
+      },
+      {
+        title: "Repeat from the new parameter",
+        prompt: "The new current value is 0.6. Gradient descent does not jump to the answer; it repeats the same local check.",
+        theta: 0.6,
+        gradient: null,
+        nextTheta: null,
+        lines: [
+          ["Current", "&theta;<sub>1</sub> = 0.6"],
+          ["Substitute", "dJ/d&theta;(0.6) = 2(0.6 - 3)"]
+        ]
+      },
+      {
+        title: "Compute the second gradient",
+        prompt: "The gradient is still negative, but it is less negative than before. The slope is getting less steep.",
+        theta: 0.6,
+        gradient: -4.8,
+        nextTheta: null,
+        lines: [
+          ["Simplify", "dJ/d&theta;(0.6) = 2(-2.4)"],
+          ["Gradient", "dJ/d&theta;(0.6) = -4.8"]
+        ]
+      },
+      {
+        title: "Make the second update",
+        prompt: "Use the same rule again. The parameter moves right again, but the step is smaller than the first one.",
+        theta: 0.6,
+        gradient: -4.8,
+        nextTheta: 1.08,
+        lines: [
+          ["Rule", "&theta;<sub>2</sub> = &theta;<sub>1</sub> - &alpha; &nabla;J(&theta;<sub>1</sub>)"],
+          ["Substitute", "&theta;<sub>2</sub> = 0.6 - 0.1(-4.8)"],
+          ["Result", "&theta;<sub>2</sub> = 1.08"]
+        ]
+      },
+      {
+        title: "Repeat once more",
+        prompt: "Now the current parameter is 1.08. We again calculate the slope at the current position.",
+        theta: 1.08,
+        gradient: null,
+        nextTheta: null,
+        lines: [
+          ["Current", "&theta;<sub>2</sub> = 1.08"],
+          ["Substitute", "dJ/d&theta;(1.08) = 2(1.08 - 3)"]
+        ]
+      },
+      {
+        title: "Compute the third gradient",
+        prompt: "The gradient is still negative, so the next update will still move theta to the right.",
+        theta: 1.08,
+        gradient: -3.84,
+        nextTheta: null,
+        lines: [
+          ["Simplify", "dJ/d&theta;(1.08) = 2(-1.92)"],
+          ["Gradient", "dJ/d&theta;(1.08) = -3.84"]
+        ]
+      },
+      {
+        title: "Make the third update",
+        prompt: "The update is smaller again because the gradient magnitude is smaller.",
+        theta: 1.08,
+        gradient: -3.84,
+        nextTheta: 1.464,
+        lines: [
+          ["Rule", "&theta;<sub>3</sub> = &theta;<sub>2</sub> - &alpha; &nabla;J(&theta;<sub>2</sub>)"],
+          ["Substitute", "&theta;<sub>3</sub> = 1.08 - 0.1(-3.84)"],
+          ["Result", "&theta;<sub>3</sub> = 1.464"]
+        ]
+      },
+      {
+        title: "Read the pattern",
+        prompt: "The parameter is moving toward 3. The closer it gets, the smaller the gradient becomes.",
+        theta: 1.464,
+        gradient: -3.072,
+        nextTheta: 1.7712,
+        lines: [
+          ["Path", "0 &rarr; 0.6 &rarr; 1.08 &rarr; 1.464"],
+          ["Meaning", "Each update moves toward lower loss, not directly to the final answer."]
+        ]
+      },
+      {
+        title: "Key idea",
+        prompt: "Gradient descent is repeated local improvement: measure slope, step in the negative-gradient direction, and repeat.",
+        theta: 1.464,
+        gradient: -3.072,
+        nextTheta: 1.7712,
+        lines: [
+          ["Rule", "&theta;<sub>new</sub> = &theta;<sub>current</sub> - &alpha; &times; gradient"],
+          ["Takeaway", "Smaller gradients near the minimum usually make later updates smaller."]
+        ]
+      }
+    ];
+
+    const title = document.getElementById("step-title");
+    const prompt = document.getElementById("step-prompt");
+    const count = document.getElementById("step-count");
+    const board = document.getElementById("formula-board");
+    const progress = document.getElementById("progress");
+    const back = document.getElementById("back");
+    const next = document.getElementById("next");
+    const restart = document.getElementById("restart");
+    const lossCurvePath = document.getElementById("loss-curve-path");
+    const lossFill = document.getElementById("loss-fill");
+    const point = document.getElementById("point");
+    const pointDrop = document.getElementById("point-drop");
+    const pointLabel = document.getElementById("point-label");
+    const minimum = document.getElementById("minimum");
+    const minimumDrop = document.getElementById("minimum-drop");
+    const minimumLabel = document.getElementById("minimum-label");
+    const thetaValue = document.getElementById("theta-value");
+    const gradientValue = document.getElementById("gradient-value");
+    const nextValue = document.getElementById("next-value");
+
+    let index = 0;
+
+    const plot = {
+      minTheta: -0.5,
+      maxTheta: 3.5,
+      left: 18,
+      right: 224,
+      top: 24,
+      bottom: 130
+    };
+
+    function pointForTheta(theta) {
+      const clamped = Math.max(plot.minTheta, Math.min(plot.maxTheta, theta));
+      const maxLoss = (plot.minTheta - 3) ** 2;
+      const x = plot.left + ((clamped - plot.minTheta) / (plot.maxTheta - plot.minTheta)) * (plot.right - plot.left);
+      const loss = (clamped - 3) ** 2;
+      const y = plot.bottom - (loss / maxLoss) * (plot.bottom - plot.top);
+      return { x, y };
+    }
+
+    function curvePoints() {
+      return Array.from({ length: 72 }, (_, i) => {
+        const theta = plot.minTheta + (i / 71) * (plot.maxTheta - plot.minTheta);
+        return pointForTheta(theta);
+      });
+    }
+
+    function pathFromPoints(points) {
+      return points.map((point, i) => {
+        const command = i === 0 ? "M" : "L";
+        return `${command} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+      }).join(" ");
+    }
+
+    function drawStaticCurve() {
+      const points = curvePoints();
+      const curvePath = pathFromPoints(points);
+      const minimumPoint = pointForTheta(3);
+
+      lossCurvePath.setAttribute("d", curvePath);
+      lossFill.setAttribute("d", `${curvePath} L ${plot.right} ${plot.bottom} L ${plot.left} ${plot.bottom} Z`);
+      minimum.setAttribute("cx", minimumPoint.x);
+      minimum.setAttribute("cy", minimumPoint.y);
+      minimumDrop.setAttribute("x1", minimumPoint.x);
+      minimumDrop.setAttribute("x2", minimumPoint.x);
+      minimumDrop.setAttribute("y1", minimumPoint.y);
+      minimumDrop.setAttribute("y2", plot.bottom);
+      minimumLabel.setAttribute("x", Math.min(minimumPoint.x, plot.right - 34));
+      minimumLabel.setAttribute("y", minimumPoint.y + 18);
+    }
+
+    function format(value) {
+      if (value === null || value === undefined) return "-";
+      return Number(value).toFixed(4).replace(/\.?0+$/, "");
+    }
+
+    function render() {
+      const step = steps[index];
+      title.textContent = step.title;
+      prompt.textContent = step.prompt;
+      count.textContent = `Step ${index + 1} of ${steps.length}`;
+
+      board.innerHTML = step.lines.map((line, lineIndex) => `
+        <div class="formula-line ${lineIndex === step.lines.length - 1 ? "current" : ""}">
+          <div class="formula-label">${line[0]}</div>
+          <div class="math">${line[1]}</div>
+        </div>
+      `).join("");
+
+      progress.innerHTML = steps.map((_, dotIndex) => {
+        const className = dotIndex < index ? "dot done" : dotIndex === index ? "dot current" : "dot";
+        return `<span class="${className}"></span>`;
+      }).join("");
+
+      const currentTheta = step.nextTheta !== null && step.nextTheta !== undefined ? step.nextTheta : step.theta;
+      const currentPoint = pointForTheta(currentTheta);
+      const labelX = Math.max(plot.left + 30, Math.min(plot.right - 30, currentPoint.x));
+      const labelY = currentPoint.y < 44 ? currentPoint.y + 22 : currentPoint.y - 12;
+
+      point.setAttribute("cx", currentPoint.x);
+      point.setAttribute("cy", currentPoint.y);
+      pointDrop.setAttribute("x1", currentPoint.x);
+      pointDrop.setAttribute("x2", currentPoint.x);
+      pointDrop.setAttribute("y1", currentPoint.y);
+      pointDrop.setAttribute("y2", plot.bottom);
+      pointLabel.setAttribute("x", labelX);
+      pointLabel.setAttribute("y", labelY);
+      pointLabel.textContent = `theta = ${format(currentTheta)}`;
+
+      thetaValue.textContent = format(step.theta);
+      gradientValue.textContent = format(step.gradient);
+      nextValue.textContent = format(step.nextTheta);
+
+      back.disabled = index === 0;
+      next.disabled = index === steps.length - 1;
+      next.textContent = index === steps.length - 2 ? "Finish" : "Next";
+    }
+
+    back.addEventListener("click", () => {
+      index = Math.max(0, index - 1);
+      render();
+    });
+
+    next.addEventListener("click", () => {
+      index = Math.min(steps.length - 1, index + 1);
+      render();
+    });
+
+    restart.addEventListener("click", () => {
+      index = 0;
+      render();
+    });
+
+    drawStaticCurve();
+    render();
+  </script>
+</body>
+</html>
